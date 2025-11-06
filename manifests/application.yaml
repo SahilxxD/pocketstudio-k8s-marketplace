@@ -1,0 +1,158 @@
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: "$APP_INSTANCE_NAME"
+  namespace: "$NAMESPACE"
+  annotations:
+    kubernetes-engine.cloud.google.com/icon: |
+      data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==
+    marketplace.cloud.google.com/deploy-info: '{partner_id: "wohlig", product_id: "pocketstudio", partner_name: "Wohlig"}'
+  labels:
+    app.kubernetes.io/name: "$APP_INSTANCE_NAME"
+spec:
+  descriptor:
+    type: PocketStudio
+    version: "1.0.0"
+    description: |-
+      PocketStudio - AI-Powered Image Generation Platform
+      
+      Enterprise-grade image generation running entirely in your infrastructure.
+      
+      **What's Included:**
+      - AI image generation with nano-banana
+      - MongoDB database (20GB storage)
+      - Redis cache for performance
+      - Complete data isolation
+      - Workload Identity (no API keys needed for Google services)
+      
+      **Pricing:** $1.37/hour per replica (~$1,000/month for 1 replica)
+      
+      **What You Pay Separately:**
+      - Your GKE cluster costs (~$150-300/month)
+      - Your fal.ai API usage (~$0.02 per image)
+      - Your Google Cloud APIs (Gemini, Storage - minimal)
+      
+      # Prerequisites
+      
+      Before deploying, you must have:
+      
+      1. **fal.ai Account & API Key**
+         - Sign up: https://fal.ai
+         - Get API key: https://fal.ai/dashboard
+         - Add payment method (you'll be billed per image)
+      
+      2. **Google Cloud Storage Bucket**
+         - Create: `gsutil mb gs://pocketstudio-images-UNIQUE`
+         - Must exist before deployment
+      
+      3. **GKE Cluster with Workload Identity**
+         - Already enabled if using GKE 1.19+
+         - No manual configuration needed
+      
+      # Support
+      
+      Email: support@wohlig.com
+      Documentation: https://github.com/wohlig/pocketstudio
+    
+    maintainers:
+      - name: Wohlig Support
+        email: support@wohlig.com
+    
+    links:
+      - description: User Guide
+        url: https://github.com/wohlig/pocketstudio-k8s-marketplace
+      - description: Get fal.ai API Key
+        url: https://fal.ai/dashboard
+    
+    notes: |-
+      # PocketStudio Deployed Successfully! 🎉
+      
+      ## Access Your Application
+      
+      Get the LoadBalancer IP:
+```
+      kubectl get service $APP_INSTANCE_NAME-svc -n $NAMESPACE
+```
+      
+      Access PocketStudio at: `http://EXTERNAL-IP`
+      
+      ## Check Status
+      
+      View pods:
+```
+      kubectl get pods -n $NAMESPACE
+```
+      
+      View logs:
+```
+      kubectl logs -f deployment/$APP_INSTANCE_NAME -n $NAMESPACE
+```
+      
+      ## Important Notes
+      
+      ✅ **GCP Project:** Auto-detected from your cluster
+      ✅ **Gemini API:** Automatically authenticated via Workload Identity
+      ✅ **Storage:** Images saved to your GCS bucket
+      ✅ **Billing:** You're charged $1.37/hour per replica for software license
+      
+      ⚠️ **Additional Costs:**
+      - fal.ai API: ~$0.02 per image (billed to YOUR fal.ai account)
+      - Gemini API: ~$0.001 per call (billed to YOUR GCP project)
+      - Cloud Storage: ~$0.02/GB/month (billed to YOUR GCP project)
+      
+      ## Troubleshooting
+      
+      If pods are not starting:
+```
+      kubectl describe pod -n $NAMESPACE
+      kubectl logs deployment/$APP_INSTANCE_NAME -n $NAMESPACE
+```
+      
+      Common issues:
+      - GCS bucket doesn't exist → Create it first
+      - fal.ai API key invalid → Check key from dashboard
+      - Vertex AI API not enabled → Deployer enables it automatically
+      
+      ## Support
+      
+      📧 Email: support@wohlig.com
+      📚 Docs: https://github.com/wohlig/pocketstudio
+  
+  info:
+    - name: Application Name
+      value: "$APP_INSTANCE_NAME"
+    - name: Namespace
+      value: "$NAMESPACE"
+    - name: Frontend URL
+      type: Reference
+      valueFrom:
+        serviceRef:
+          name: "$APP_INSTANCE_NAME-frontend-svc"
+    - name: Backend API
+      type: Reference
+      valueFrom:
+        serviceRef:
+          name: "$APP_INSTANCE_NAME-backend-svc"
+    - name: Storage Bucket
+      value: "$CUSTOMER_GCP_BUCKET"
+
+  
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "$APP_INSTANCE_NAME"
+  
+  componentKinds:
+    - group: v1
+      kind: Service
+    - group: apps/v1
+      kind: Deployment
+    - group: apps/v1
+      kind: StatefulSet
+    - group: v1
+      kind: Secret
+    - group: v1
+      kind: ConfigMap
+    - group: v1
+      kind: PersistentVolumeClaim
+    - group: v1
+      kind: ServiceAccount

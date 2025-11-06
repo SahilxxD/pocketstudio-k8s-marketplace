@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${APP_INSTANCE_NAME}-backend-svc
+  namespace: $NAMESPACE
+  labels:
+    app.kubernetes.io/name: "$APP_INSTANCE_NAME"
+    app.kubernetes.io/component: pocketstudio-backend
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: "$APP_INSTANCE_NAME"
+    app.kubernetes.io/component: pocketstudio-api
+  ports:
+  - name: http
+    port: 3000
+    targetPort: 3000
+    protocol: TCP

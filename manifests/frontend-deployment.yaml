@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${APP_INSTANCE_NAME}-frontend
+  namespace: $NAMESPACE
+  labels:
+    app.kubernetes.io/name: "$APP_INSTANCE_NAME"
+    app.kubernetes.io/component: pocketstudio-frontend
+spec:
+  replicas: $REPLICAS
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "$APP_INSTANCE_NAME"
+      app.kubernetes.io/component: pocketstudio-frontend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "$APP_INSTANCE_NAME"
+        app.kubernetes.io/component: pocketstudio-frontend
+    spec:
+      containers:
+      - name: frontend
+        image: $IMAGE_FRONTEND
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+        env:
+        - name: VITE_API_URL
+          value: "http://${APP_INSTANCE_NAME}-backend-svc:3000"
+        - name: NODE_ENV
+          value: "production"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 10

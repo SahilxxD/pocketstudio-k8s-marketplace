@@ -1,0 +1,234 @@
+x-google-marketplace:
+  schemaVersion: v2
+  applicationApiVersion: v1beta1
+  
+  publishedVersion: '1.0.0'
+  publishedVersionMetadata:
+    releaseNote: >-
+      Initial release of PocketStudio on Google Cloud Marketplace.
+      
+      Features:
+      - AI-powered image generation with nano-banana
+      - Workload Identity (no Google API key needed)
+      - Auto-detect GCP project from cluster
+      - Instance-time billing ($1.37/hour per replica)
+      - Complete data isolation
+      - MongoDB and Redis included
+      
+      Pricing: ~$1,000/month for 1 replica running 24/7
+    recommended: true
+  
+  # Cluster resource requirements
+  clusterConstraints:
+    resources:
+    - replicas: 2
+      requests:
+        cpu: 2500m      # 2.5 CPU total (500m app + 500m mongo + 100m redis + extra)
+        memory: 5Gi     # 5GB total (1GB app + 1GB mongo + 256MB redis + extra)
+      affinity:
+        simpleNodeAffinity:
+          type: REQUIRE_MINIMUM_NODE_COUNT
+          minimumNodeCount: 2
+    
+    # Require Workload Identity
+    gcp:
+      nodes:
+        requiredFeatures:
+          - workload-identity
+  
+  # Container images
+  images:
+    '':  # Primary image (empty string = default)
+      properties:
+        image.pocketstudio:
+          type: FULL
+    ubbagent:  # UBB agent image
+      properties:
+        image.ubbagent:
+          type: FULL
+
+# Properties that customer fills in the UI
+properties:
+  
+  # ==========================================
+  # REQUIRED: Application Instance Name
+  # ==========================================
+  name:
+    type: string
+    x-google-marketplace:
+      type: NAME
+    title: Application instance name
+    description: >-
+      Unique name for this PocketStudio deployment.
+      Used to identify resources in your cluster.
+    default: pocketstudio-1
+    maxLength: 63
+    pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+  
+  # ==========================================
+  # REQUIRED: Namespace
+  # ==========================================
+  namespace:
+    type: string
+    x-google-marketplace:
+      type: NAMESPACE
+    title: Namespace
+    description: >-
+      Kubernetes namespace where PocketStudio will be deployed.
+      Creates namespace if it doesn't exist.
+  
+  # ==========================================
+  # REQUIRED: Primary Application Image
+  # ==========================================
+  image.pocketstudio:
+    type: string
+    x-google-marketplace:
+      type: IMAGE
+    title: PocketStudio Image
+    description: Docker image for PocketStudio application
+  
+  # ==========================================
+  # REQUIRED: UBB Agent Image
+  # ==========================================
+  image.ubbagent:
+    type: string
+    default: gcr.io/cloud-marketplace-tools/metering/ubbagent:latest
+    x-google-marketplace:
+      type: IMAGE
+    title: Usage Metering Agent Image
+    description: Tracks instance time for billing
+  
+  # ==========================================
+  # REQUIRED: Number of Replicas
+  # ==========================================
+  replicas:
+    type: integer
+    title: Number of Replicas
+    description: >-
+      Number of PocketStudio application instances to run.
+      
+      IMPORTANT: You're billed $1.37/hour PER REPLICA.
+      - 1 replica = ~$1,000/month
+      - 2 replicas = ~$2,000/month
+      - 3 replicas = ~$3,000/month
+      
+      Recommendation: Start with 2 replicas for high availability.
+    default: 2
+    minimum: 1
+    maximum: 10
+  
+  # ==========================================
+  # REQUIRED: fal.ai API Key
+  # ==========================================
+  customer.falKey:
+    type: string
+    title: fal.ai API Key
+    description: >-
+      Your fal.ai API key for AI image generation.
+      
+      How to get it:
+      1. Sign up at https://fal.ai
+      2. Add a payment method
+      3. Go to https://fal.ai/dashboard
+      4. Copy your API key (format: fal_key_...)
+      
+      Cost: ~$0.02 per image generated (billed to YOUR fal.ai account)
+    x-google-marketplace:
+      type: STRING
+  
+  # ==========================================
+  # REQUIRED: Cloud Storage Bucket
+  # ==========================================
+  customer.gcpBucket:
+    type: string
+    title: Cloud Storage Bucket Name
+    description: >-
+      Name of your Google Cloud Storage bucket for storing generated images.
+      
+      IMPORTANT: Create the bucket BEFORE deploying:
+      
+      gsutil mb -p YOUR_PROJECT_ID gs://pocketstudio-images-UNIQUE
+      
+      Make it unique (e.g., add your company name or random suffix).
+      
+      Cost: ~$0.02 per GB/month (billed to YOUR GCP project)
+    x-google-marketplace:
+      type: STRING
+    pattern: '^[a-z0-9][a-z0-9\-_.]{1,61}[a-z0-9]$'
+  
+  # ==========================================
+  # OPTIONAL: GCP Project Override
+  # ==========================================
+  customer.gcpProject:
+    type: string
+    title: GCP Project ID (Optional - Auto-detected)
+    description: >-
+      Your GCP project ID. Leave empty for auto-detection.
+      
+      The deployer automatically detects your project from the cluster.
+      Only provide this if auto-detection fails.
+    x-google-marketplace:
+      type: STRING
+    default: ""
+  
+  # ==========================================
+  # AUTO-GENERATED: Reporting Secret
+  # ==========================================
+  reportingSecret:
+    type: string
+    x-google-marketplace:
+      type: REPORTING_SECRET
+    title: Reporting Secret
+    description: Secret for usage reporting (auto-generated by Marketplace)
+
+# Required fields (customer must fill these)
+required:
+- name
+- namespace
+- image.pocketstudio
+- replicas
+- customer.falKey
+- customer.gcpBucket
+- reportingSecret
+
+# Form layout configuration
+form:
+- widget: help
+  description: >-
+    PocketStudio - AI-Powered Image Generation Platform
+    
+    
+    BEFORE YOU DEPLOY:
+    
+    
+    1. Create a GCS bucket:
+       gsutil mb gs://pocketstudio-images-UNIQUE
+    
+    
+    2. Get your fal.ai API key:
+       https://fal.ai/dashboard
+    
+    
+    3. Ensure Workload Identity is enabled (usually automatic in GKE 1.19+)
+    
+    
+    PRICING:
+    
+    - Software License: $1.37/hour per replica (~$1,000/month for 1 replica)
+    
+    - Your GKE Cluster: ~$150-300/month (you pay Google directly)
+    
+    - fal.ai API: ~$0.02/image (you pay fal.ai directly)
+    
+    - Gemini & Storage: Minimal cost (you pay Google directly)
+    
+    
+    Total: ~$1,200-1,500/month for typical usage
+
+- widget: help
+  description: >-
+    SUPPORT:
+    
+    Email: support@wohlig.com
+    
+    Docs: https://github.com/wohlig/pocketstudio

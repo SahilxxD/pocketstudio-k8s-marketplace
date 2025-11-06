@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: $APP_INSTANCE_NAME-ubbagent-config
+  namespace: $NAMESPACE
+  labels:
+    app.kubernetes.io/name: "$APP_INSTANCE_NAME"
+data:
+  config.yaml: |
+    # Metric definition for instance time billing
+    metrics:
+    - name: instance_time
+      type: int
+      aggregation:
+        bufferSeconds: 60
+      endpoints:
+      - name: on_disk
+      - name: servicecontrol
+      passthrough: {}
+    
+    # Reporting endpoints
+    endpoints:
+    - name: on_disk
+      disk:
+        reportDir: /var/lib/ubbagent/reports
+        expireSeconds: 3600
+    - name: servicecontrol
+      servicecontrol:
+        identity: gcp
+        serviceName: pocketstudio.endpoints.confixa-public.cloud.goog
+        consumerId: "$AGENT_CONSUMER_ID"
+    
+    # Automatic heartbeat - reports every 60 seconds
+    # This tracks how long the pod is running
+    # Customer is billed: 60 seconds × $1.37/hour = ~$0.023 per minute
+    sources:
+    - name: instance_time_heartbeat
+      heartbeat:
+        metric: instance_time
+        intervalSeconds: 60
+        value:
+          int64Value: 60

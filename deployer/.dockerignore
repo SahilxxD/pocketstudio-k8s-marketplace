@@ -1,0 +1,20 @@
+# Git files
+.git
+.gitignore
+
+# Documentation
+*.md
+README*
+
+# Test files
+test*
+*_test.go
+
+# Build artifacts
+*.log
+*.tmp
+
+# IDE files
+.vscode
+.idea
+*.swp

@@ -1,0 +1,165 @@
+x-google-marketplace:
+  schemaVersion: v2
+  applicationApiVersion: v1beta1
+  publishedVersion: '1.0'  # ← Changed to minor version
+  publishedVersionMetadata:
+    releaseNote: >-
+      Initial release of PocketStudio on Google Cloud Marketplace.
+      Features include AI-powered image generation with nano-banana,
+      Workload Identity integration, auto-detect GCP project,
+      instance-time billing, complete data isolation,
+      MongoDB and Redis included.
+      Pricing is approximately $1,000 per month for 1 replica running 24/7.
+    recommended: true
+  
+  deployerServiceAccount:
+    description: Service account used by deployer
+    roles:
+    - type: ClusterRole
+      rulesType: PREDEFINED
+      rulesFromRoleName: cluster-admin
+  
+  clusterConstraints:
+    resources:
+    - replicas: 2
+      requests:
+        cpu: 2500m
+        memory: 5Gi
+      affinity:
+        simpleNodeAffinity:
+          type: REQUIRE_MINIMUM_NODE_COUNT
+          minimumNodeCount: 2
+  
+  images:
+    backend:
+      properties:
+        image.pocketstudio:
+          type: FULL
+    frontend:
+      properties:
+        image.frontend:
+          type: FULL
+    # ubbagent:
+    #   properties:
+    #     image.ubbagent:
+    #       type: FULL
+
+properties:
+  name:
+    type: string
+    x-google-marketplace:
+      type: NAME
+    title: Application instance name
+    description: Unique name for this PocketStudio deployment
+    default: pocketstudio-1
+    maxLength: 63
+    pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+  
+  namespace:
+    type: string
+    x-google-marketplace:
+      type: NAMESPACE
+    title: Namespace
+    description: Kubernetes namespace where PocketStudio will be deployed
+  
+  image.pocketstudio:
+    type: string
+    default: us-docker.pkg.dev/confixa-public/pocketstudio/backend:1.0
+    x-google-marketplace:
+      type: IMAGE
+      image:
+        generatedProperties:
+          splitByColon:
+            before: image.pocketstudioRegistry
+            after: image.pocketstudioTag
+    title: PocketStudio Backend Image
+    description: Docker image for PocketStudio backend API
+  
+  image.frontend:
+    type: string
+    default: us-docker.pkg.dev/confixa-public/pocketstudio/frontend:1.0
+    x-google-marketplace:
+      type: IMAGE
+      image:
+        generatedProperties:
+          splitByColon:
+            before: image.frontendRegistry
+            after: image.frontendTag
+    title: PocketStudio Frontend Image
+    description: Docker image for PocketStudio web interface
+  
+  image.ubbagent:
+    type: string
+    default: gcr.io/cloud-marketplace-tools/metering/ubbagent:latest
+    title: Usage Metering Agent Image
+    description: Tracks instance time for billing
+  
+  replicas:
+    type: integer
+    title: Number of Replicas
+    description: Number of PocketStudio instances. You are billed $1.37 per hour per replica.
+    default: 2
+    minimum: 1
+    maximum: 10
+  
+  customer.falKey:
+    type: string
+    title: fal.ai API Key
+    description: Your fal.ai API key for AI image generation. Get it from https://fal.ai/dashboard
+    x-google-marketplace:
+      type: STRING
+  
+  customer.gcpBucket:
+    type: string
+    title: Cloud Storage Bucket Name
+    description: Name of your GCS bucket for storing generated images. Create first with gsutil mb command.
+    x-google-marketplace:
+      type: STRING
+    pattern: '^[a-z0-9][a-z0-9\-_.]{1,61}[a-z0-9]$'
+  
+  customer.gcpProject:
+    type: string
+    title: GCP Project ID (Optional)
+    description: Your GCP project ID. Leave empty for auto-detection.
+    x-google-marketplace:
+      type: STRING
+    default: ""
+  
+  reportingSecret:
+    type: string
+    x-google-marketplace:
+      type: REPORTING_SECRET
+
+required:
+- name
+- namespace
+- image.pocketstudio
+- image.frontend
+- replicas
+- customer.falKey
+- customer.gcpBucket
+- reportingSecret
+
+form:
+- widget: help
+  description: |
+    PocketStudio - AI-Powered Image Generation Platform
+    
+    BEFORE YOU DEPLOY:
+    1. Create a GCS bucket: gsutil mb gs://pocketstudio-images-UNIQUE
+    2. Get your fal.ai API key from https://fal.ai/dashboard
+    3. Ensure Workload Identity is enabled (automatic in GKE 1.19+)
+    
+    PRICING:
+    - Software License: $1.37/hour per replica (~$1,000/month for 1 replica)
+    - Your GKE Cluster: ~$150-300/month (you pay Google)
+    - fal.ai API: ~$0.02/image (you pay fal.ai)
+    - Gemini and Storage: Minimal cost (you pay Google)
+    
+    Total: ~$1,200-1,500/month for typical usage
+
+- widget: help
+  description: |
+    SUPPORT:
+    Email: support@wohlig.com
+    Docs: https://github.com/wohlig/pocketstudio

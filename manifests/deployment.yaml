@@ -1,0 +1,154 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: $APP_INSTANCE_NAME
+  namespace: $NAMESPACE
+  labels:
+    app.kubernetes.io/name: "$APP_INSTANCE_NAME"
+    app.kubernetes.io/component: pocketstudio-backend
+spec:
+  replicas: $REPLICAS
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "$APP_INSTANCE_NAME"
+      app.kubernetes.io/component: pocketstudio-backend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "$APP_INSTANCE_NAME"
+        app.kubernetes.io/component: pocketstudio-backend
+    spec:
+      serviceAccountName: ${APP_INSTANCE_NAME}-sa
+      
+      # Init container for MongoDB readiness
+      initContainers:
+      - name: wait-for-mongodb
+        image: busybox:1.35
+        command:
+        - sh
+        - -c
+        - |
+          echo "Waiting for MongoDB..."
+          until nc -z ${APP_INSTANCE_NAME}-mongodb 27017; do
+            echo "MongoDB not ready, waiting..."
+            sleep 5
+          done
+          echo "MongoDB is ready!"
+      
+      - name: wait-for-redis
+        image: busybox:1.35
+        command:
+        - sh
+        - -c
+        - |
+          echo "Waiting for Redis..."
+          until nc -z ${APP_INSTANCE_NAME}-redis 6379; do
+            echo "Redis not ready, waiting..."
+            sleep 5
+          done
+          echo "Redis is ready!"
+      
+      containers:
+      # Main PocketStudio container
+      - name: pocketstudio
+        image: $IMAGE_POCKETSTUDIO
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 3000
+          protocol: TCP
+        env:
+        # MongoDB connection
+        - name: MONGODB_URI
+          value: "mongodb://${APP_INSTANCE_NAME}-mongodb:27017/pocketstudio"
+        
+        # Redis connection
+        - name: REDIS_HOST
+          value: "${APP_INSTANCE_NAME}-redis"
+        - name: REDIS_PORT
+          value: "6379"
+        
+        # Customer configuration from secrets
+        - name: FAL_KEY
+          valueFrom:
+            secretKeyRef:
+              name: ${APP_INSTANCE_NAME}-secrets
+              key: fal-key
+        
+        - name: GCP_BUCKET
+          valueFrom:
+            secretKeyRef:
+              name: ${APP_INSTANCE_NAME}-secrets
+              key: gcp-bucket
+        
+        - name: GCP_PROJECT
+          valueFrom:
+            secretKeyRef:
+              name: ${APP_INSTANCE_NAME}-secrets
+              key: gcp-project
+        
+        # Application configuration
+        - name: PORT
+          value: "3000"
+        - name: NODE_ENV
+          value: "production"
+        
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 2Gi
+          limits:
+            cpu: 2000m
+            memory: 4Gi
+        
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      
+      # UBB Agent sidecar for usage reporting
+      - name: ubbagent
+        image: $IMAGE_UBBAGENT
+        env:
+        - name: AGENT_CONFIG_FILE
+          value: /etc/ubbagent/config.yaml
+        - name: AGENT_LOCAL_PORT
+          value: "4567"
+        - name: AGENT_ENCODED_KEY
+          valueFrom:
+            secretKeyRef:
+              name: $REPORTING_SECRET
+              key: reporting-key
+        - name: AGENT_CONSUMER_ID
+          valueFrom:
+            secretKeyRef:
+              name: $REPORTING_SECRET
+              key: consumer-id
+        volumeMounts:
+        - name: ubbagent-config
+          mountPath: /etc/ubbagent
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+      
+      volumes:
+      - name: ubbagent-config
+        configMap:
+          name: ${APP_INSTANCE_NAME}-ubbagent-config
